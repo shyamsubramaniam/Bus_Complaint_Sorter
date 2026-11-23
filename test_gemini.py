@@ -16,7 +16,7 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 # Test complaint
-complaint = "Driver on route 7 was talking on the phone while driving."
+complaint = "Students standing on footboard due to lack of space."
 
 # Ask Gemini to classify the complaint
 prompt = """
@@ -47,7 +47,7 @@ Complaint:
 
 try:
     response = client.models.generate_content(
-        model="gemini-3.8-flash",
+        model="gemini-3.5-flash-lite",
         contents=prompt,
         config={
             "response_mime_type": "application/json"

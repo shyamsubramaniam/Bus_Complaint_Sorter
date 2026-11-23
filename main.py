@@ -10,18 +10,77 @@ from google import genai
 # Load environment variables
 load_dotenv()
 
-# Select project mode
-USE_GEMINI = False
-client = None
+# Project settings
+USE_GEMINI = True
+MODEL_NAME = "gemini-3.5-flash-lite"
 
-# Get Gemini API key
-api_key = os.getenv("GEMINI_API_KEY")
+REQUEST_DELAY = 5
+RETRY_DELAY = 10
+QUOTA_RETRY_DELAY = 60
+
+MAX_ATTEMPTS = 2
 
 # Connect to Gemini
-if not api_key:
-    raise ValueError("Gemini API key not found in .env file!")
+client = None
 
-client = genai.Client(api_key=api_key)
+if USE_GEMINI:
+
+    api_key = os.getenv("GEMINI_API_KEY")
+
+    if not api_key:
+        raise ValueError(
+            "Gemini API key not found in .env file!"
+        )
+
+    client = genai.Client(api_key=api_key)
+
+
+# Function 1: Load complaints
+def load_complaints():
+
+    complaints = []
+
+    with open(
+        "complaints.csv",
+        "r",
+        newline="",
+        encoding="utf-8-sig"
+    ) as file:
+
+        reader = csv.DictReader(file)
+
+        for row in reader:
+            complaints.append(row)
+
+    return complaints
+
+
+# Function 2: Load routes
+def load_routes():
+
+    routes = {}
+
+    with open(
+        "routes.csv",
+        "r",
+        newline="",
+        encoding="utf-8-sig"
+    ) as file:
+
+        reader = csv.DictReader(file)
+
+        reader.fieldnames = [
+            name.strip() for name in reader.fieldnames
+        ]
+
+        for row in reader:
+
+            route_number = int(row["route"].strip())
+            area_name = row["area"].strip()
+
+            routes[route_number] = area_name
+
+    return routes
 
 
 # Offline demonstration classifier
@@ -35,7 +94,7 @@ def classify_offline(complaint):
     urgent = False
     route = None
 
-    # Extract only explicitly mentioned route numbers
+    # Extract explicitly mentioned route number
     match = re.search(r"\broute\s+(\d+)\b", text)
 
     if match:
@@ -51,46 +110,66 @@ def classify_offline(complaint):
         "smoke",
         "burning smell",
         "does not close properly",
-        "damaged and unsafe"
+        "damaged and unsafe",
+        "dangerous braking",
+        "near accident",
+        "faulty brake"
     ]
 
     if any(word in text for word in safety_words):
         urgent = True
 
-    
     # Identify complaint category
-
     if any(word in text for word in [
         "add a stop",
-        "provide a bus stop", "bus stop",
-        "missed our usual stop", "missed the stop",
-        "usual stop", "railway station"
+        "provide a bus stop",
+        "bus stop",
+        "missed our usual stop",
+        "missed the stop",
+        "usual stop",
+        "railway station"
     ]):
         category = "route_request"
 
     elif any(word in text for word in [
-        "crowded", "crowding", "overcrowded",
-        "no space", "cannot get seats", "cannot get a seat"
+        "crowded",
+        "crowding",
+        "overcrowded",
+        "no space",
+        "cannot get seats",
+        "cannot get a seat",
+        "footboard"
     ]):
         category = "crowding"
 
     elif any(word in text for word in [
-        "late", "delay", "waiting", "on time",
+        "late",
+        "delay",
+        "waiting",
+        "on time",
         "did not arrive"
     ]):
         category = "delay"
 
-    elif any(word in text for word in ["driver", "driving"]):
+    elif any(word in text for word in [
+        "driver",
+        "driving"
+    ]):
         category = "driver"
 
     elif any(word in text for word in [
-        "tyre", "engine", "door", "brake",
-        "smoke", "window", "air conditioning", " ac "
+        "tyre",
+        "engine",
+        "door",
+        "brake",
+        "smoke",
+        "window",
+        "air conditioning",
+        " ac "
     ]):
         category = "vehicle"
 
-
-    # Generate meaningful summaries
+    # Generate summaries
     if "phone while driving" in text:
         summary = "Driver used a phone while driving"
 
@@ -115,7 +194,12 @@ def classify_offline(complaint):
     elif "air conditioning" in text or " ac " in text:
         summary = "Bus air conditioning is not working"
 
-    elif any(word in text for word in ["late", "delay", "on time", "did not arrive"]):
+    elif any(word in text for word in [
+        "late",
+        "delay",
+        "on time",
+        "did not arrive"
+    ]):
         summary = "Bus arrived late at the scheduled pickup point"
 
     elif "crowd" in text or "seats" in text:
@@ -136,7 +220,7 @@ def classify_offline(complaint):
         "route": route,
         "summary": summary
     }
-   
+
 
 # Function 3: Classify complaints using Gemini
 def classify(complaint):
@@ -149,14 +233,27 @@ def classify(complaint):
     Allowed categories:
     delay, crowding, driver, vehicle, route_request, other
 
-    Rules:
-    1. urgent must be true only for a safety risk.
-    2. route must be the number mentioned in the complaint, or null.
-    3. Never guess a route.
-    4. Summary must contain 12 words or fewer.
-    5. Do not include people's names.
+    Safety rules:
 
-    Required JSON format:
+    urgent=true for:
+    - Driver using a phone while driving.
+    - Rash driving or dangerous speeding.
+    - Sudden dangerous braking or near accidents.
+    - Faulty brakes, unsafe doors or damaged tyres.
+    - Smoke or burning smell inside the bus.
+    - Students standing or travelling on the footboard.
+
+    Ordinary delays, ordinary crowding, rude behaviour,
+    and AC problems are not urgent unless a specific
+    safety risk is reported.
+
+    Other rules:
+    - Route must be explicitly mentioned or null.
+    - Never guess a route.
+    - Summary must contain 12 words or fewer.
+    - Do not include people's names.
+
+    Required JSON:
     {{
         "category": "driver",
         "urgent": true,
@@ -168,31 +265,39 @@ def classify(complaint):
     """
 
     try:
+
         response = client.models.generate_content(
-            model="gemini-3.8-flash",
+            model=MODEL_NAME,
             contents=prompt,
             config={
                 "response_mime_type": "application/json"
             }
         )
 
-        result = json.loads(response.text)
-
-        return result
+        return json.loads(response.text)
 
     except Exception as error:
+
         print("Gemini classification error:", error)
+
         return None
-    
-    # Function 4: Validate Gemini response
+
+
+# Function 4: Validate Gemini response
 def is_valid(result):
 
     if not isinstance(result, dict):
         return False
 
-    required_keys = ["category", "urgent", "route", "summary"]
+    required_keys = [
+        "category",
+        "urgent",
+        "route",
+        "summary"
+    ]
 
     for key in required_keys:
+
         if key not in result:
             return False
 
@@ -212,6 +317,7 @@ def is_valid(result):
         return False
 
     if result["route"] is not None:
+
         if type(result["route"]) is not int:
             return False
 
@@ -223,6 +329,7 @@ def is_valid(result):
 
     return True
 
+
 # Function 5: Check route validity
 def check_route(result, complaint, routes):
 
@@ -231,47 +338,23 @@ def check_route(result, complaint, routes):
     if route is None:
         return result
 
-    # Check whether the route exists in routes.csv
+    # Check whether route exists
     if route not in routes:
         result["route"] = None
         return result
 
-    # Check whether the route number appears in the complaint
-    if str(route) not in complaint:
+    # Check whether route is explicitly mentioned
+    import re
+
+    pattern = rf"\broute\s+{route}\b"
+
+    if not re.search(pattern, complaint, re.IGNORECASE):
         result["route"] = None
 
     return result
 
-# Function 1: Load complaints
-def load_complaints():
-    complaints = []
 
-    with open("complaints.csv", "r", newline="", encoding="utf-8-sig") as file:
-        reader = csv.DictReader(file)
-
-        for row in reader:
-            complaints.append(row)
-
-    return complaints
-
-
-# Function 2: Load routes
-def load_routes():
-    routes = {}
-
-    with open("routes.csv", "r", newline="", encoding="utf-8-sig") as file:
-        reader = csv.DictReader(file)
-
-        reader.fieldnames = [name.strip() for name in reader.fieldnames]
-
-        for row in reader:
-            route_number = int(row["route"].strip())
-            area_name = row["area"].strip()
-            routes[route_number] = area_name
-
-    return routes
-
-# Function 6: Process all complaints
+# Function 6: Process complaints
 def process_complaints(complaints, routes):
 
     results = []
@@ -282,20 +365,33 @@ def process_complaints(complaints, routes):
 
         print("\nProcessing complaint:", complaint_data["id"])
 
-        # Select classification method
         if USE_GEMINI:
 
             print("Using Gemini AI...")
-            result = classify(complaint_text)
 
-            if not is_valid(result):
-                print("Invalid response. Retrying...")
-                time.sleep(10)
+            result = None
+
+            for attempt in range(1, MAX_ATTEMPTS + 1):
+
                 result = classify(complaint_text)
+
+                if is_valid(result):
+                    break
+
+                if attempt < MAX_ATTEMPTS:
+
+                    print("Invalid response. Preparing retry...")
+
+                    # Wait before retry
+                    time.sleep(RETRY_DELAY)
+
+            # Wait between complaints
+            time.sleep(REQUEST_DELAY)
 
         else:
 
             print("Using offline demonstration mode...")
+
             result = classify_offline(complaint_text)
 
         # Manual review if response is invalid
@@ -311,7 +407,12 @@ def process_complaints(complaints, routes):
             }
 
         else:
-            result = check_route(result, complaint_text, routes)
+
+            result = check_route(
+                result,
+                complaint_text,
+                routes
+            )
 
         # Store result
         results.append({
@@ -326,11 +427,16 @@ def process_complaints(complaints, routes):
 
     return results
 
-# Function 7: Write results to CSV
 
+# Function 7: Write results CSV
 def write_results(results):
 
-    with open("results.csv", "w", newline="", encoding="utf-8") as file:
+    with open(
+        "results.csv",
+        "w",
+        newline="",
+        encoding="utf-8"
+    ) as file:
 
         fieldnames = [
             "id",
@@ -340,11 +446,15 @@ def write_results(results):
             "summary"
         ]
 
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames
+        )
 
         writer.writeheader()
 
         for result in results:
+
             writer.writerow({
                 "id": result["id"],
                 "category": result["category"],
@@ -355,10 +465,16 @@ def write_results(results):
 
     print("\nresults.csv created successfully!")
 
-    # Function 8: Write urgent complaints
+
+# Function 8: Write urgent complaints
 def write_urgent(results, routes):
 
-    with open("urgent.csv", "w", newline="", encoding="utf-8") as file:
+    with open(
+        "urgent.csv",
+        "w",
+        newline="",
+        encoding="utf-8"
+    ) as file:
 
         fieldnames = [
             "id",
@@ -369,7 +485,10 @@ def write_urgent(results, routes):
             "summary"
         ]
 
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer = csv.DictWriter(
+            file,
+            fieldnames=fieldnames
+        )
 
         writer.writeheader()
 
@@ -379,7 +498,11 @@ def write_urgent(results, routes):
 
                 route = result["route"]
 
-                area = routes.get(route, "Unknown") if route is not None else "Unknown"
+                area = (
+                    routes.get(route, "Unknown")
+                    if route is not None
+                    else "Unknown"
+                )
 
                 writer.writerow({
                     "id": result["id"],
@@ -392,32 +515,38 @@ def write_urgent(results, routes):
 
     print("urgent.csv created successfully!")
 
-    # Function 9: Generate summary report
+
+# Function 9: Generate summary report
 def write_summary(results, routes):
 
     category_counts = {}
     route_counts = {}
-
     urgent_complaints = []
 
     for result in results:
 
-        # Count categories
         category = result["category"]
 
-        category_counts[category] = category_counts.get(category, 0) + 1
+        category_counts[category] = (
+            category_counts.get(category, 0) + 1
+        )
 
-        # Count routes
         route = result["route"]
 
         if route is not None:
-            route_counts[route] = route_counts.get(route, 0) + 1
 
-        # Collect urgent complaints
+            route_counts[route] = (
+                route_counts.get(route, 0) + 1
+            )
+
         if result["urgent"] is True:
             urgent_complaints.append(result)
 
-    with open("summary.txt", "w", encoding="utf-8") as file:
+    with open(
+        "summary.txt",
+        "w",
+        encoding="utf-8"
+    ) as file:
 
         file.write("BUS COMPLAINT SORTER REPORT\n")
         file.write("===========================\n\n")
@@ -426,6 +555,7 @@ def write_summary(results, routes):
         file.write("----------------\n")
 
         for category, count in category_counts.items():
+
             file.write(f"{category}: {count}\n")
 
         file.write("\nROUTE-WISE COMPLAINT COUNTS\n")
@@ -438,23 +568,30 @@ def write_summary(results, routes):
         )
 
         for route, count in sorted_routes:
+
             area = routes.get(route, "Unknown")
-            file.write(f"Route {route} - {area}: {count}\n")
+
+            file.write(
+                f"Route {route} - {area}: {count}\n"
+            )
 
         file.write("\nURGENT SAFETY COMPLAINTS\n")
         file.write("------------------------\n")
 
         for result in urgent_complaints:
+
             file.write(
                 f"{result['id']}: {result['summary']}\n"
             )
 
     print("summary.txt created successfully!")
 
+
 # Main program
 def main():
 
     try:
+
         complaints = load_complaints()
         routes = load_routes()
 
@@ -468,18 +605,25 @@ def main():
 
         print("\nStarting complaint classification...")
 
+        # Process all 21 complaints
         results = process_complaints(complaints, routes)
+
         write_results(results)
         write_urgent(results, routes)
         write_summary(results, routes)
 
         print("\nALL TASKS COMPLETED SUCCESSFULLY!")
-        print("Check results.csv, urgent.csv and summary.txt")
+
+        print(
+            "Check results.csv, urgent.csv and summary.txt"
+        )
 
     except FileNotFoundError as error:
+
         print("CSV file not found:", error)
 
     except Exception as error:
+
         print("Program error:", error)
 
 

@@ -1,0 +1,9 @@
+test_id,test_type,expected_category,actual_category,expected_urgent,actual_urgent,expected_route,actual_route,result
+N1,Normal,delay,delay,False,False,3,3,PASS
+N2,Normal,crowding,crowding,False,False,5,5,PASS
+N3,Normal,driver,driver,True,True,7,7,PASS
+N4,Normal,vehicle,vehicle,True,True,2,2,PASS
+N5,Normal,route_request,route_request,False,False,,,PASS
+R1,Red Team,driver,driver,True,True,7,7,PASS
+R2,Red Team,delay,delay,False,False,,,PASS
+R3,Red Team,No classification,No classification,No classification,No classification,No classification,No classification,PASS

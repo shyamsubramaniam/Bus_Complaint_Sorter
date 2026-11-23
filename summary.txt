@@ -3,12 +3,12 @@ BUS COMPLAINT SORTER REPORT
 
 CATEGORY COUNTS
 ----------------
-delay: 4
-crowding: 4
-driver: 3
+delay: 5
+crowding: 3
+driver: 4
 vehicle: 5
 route_request: 3
-other: 2
+other: 1
 
 ROUTE-WISE COMPLAINT COUNTS
 ---------------------------
@@ -25,10 +25,10 @@ Route 1 - Avarampalayam: 1
 
 URGENT SAFETY COMPLAINTS
 ------------------------
-C03: Driver used a phone while driving
-C04: Front bus door does not close properly
-C08: Students standing on the footboard due to overcrowding
-C09: Driver was driving at an unsafe speed
-C10: Smoke and burning smell reported inside the bus
-C14: Bus tyre appears damaged and unsafe
-C18: Driver was driving at an unsafe speed
+C03: Driver on route 7 used phone while driving
+C04: Front door does not close properly while moving
+C08: Students travelling on footboard due to lack of space.
+C09: Route 8 driver was driving rashly and braking suddenly.
+C10: Strong burning smell and smoke inside bus
+C14: Damaged and unsafe tyre on bus
+C18: Driver of bus 11 was speeding dangerously near college gate
