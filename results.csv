@@ -1,0 +1,22 @@
+id,category,urgent,route,summary
+C01,delay,False,4,Bus arrived late at the scheduled pickup point
+C02,crowding,False,7,Bus overcrowding and insufficient seating reported
+C03,driver,True,7,Driver used a phone while driving
+C04,vehicle,True,,Front bus door does not close properly
+C05,route_request,False,4,Passenger reports a bus stop or route issue
+C06,other,False,,Vague complaint; more details required
+C07,delay,False,,Bus arrived late at the scheduled pickup point
+C08,crowding,True,5,Students standing on the footboard due to overcrowding
+C09,driver,True,8,Driver was driving at an unsafe speed
+C10,vehicle,True,,Smoke and burning smell reported inside the bus
+C11,route_request,False,,Passenger reports a bus stop or route issue
+C12,vehicle,False,2,Bus air conditioning is not working
+C13,crowding,False,,Bus overcrowding and insufficient seating reported
+C14,vehicle,True,9,Bus tyre appears damaged and unsafe
+C15,other,False,,Complaint requires further review
+C16,delay,False,10,Bus arrived late at the scheduled pickup point
+C17,crowding,False,3,Bus overcrowding and insufficient seating reported
+C18,driver,True,,Driver was driving at an unsafe speed
+C19,vehicle,False,12,Broken bus window allows rainwater inside
+C20,route_request,False,,Passenger reports a bus stop or route issue
+C21,delay,False,1,Bus arrived late at the scheduled pickup point

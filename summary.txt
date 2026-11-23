@@ -1,0 +1,34 @@
+BUS COMPLAINT SORTER REPORT
+===========================
+
+CATEGORY COUNTS
+----------------
+delay: 4
+crowding: 4
+driver: 3
+vehicle: 5
+route_request: 3
+other: 2
+
+ROUTE-WISE COMPLAINT COUNTS
+---------------------------
+Route 4 - Podanur: 2
+Route 7 - Gandhipuram: 2
+Route 5 - Thondamuthur: 1
+Route 8 - Ukkadam: 1
+Route 2 - Polytechnic: 1
+Route 9 - Thadagam Bus Stand: 1
+Route 10 - Karunya Institute: 1
+Route 3 - Madukkarai: 1
+Route 12 - Sowripalayam: 1
+Route 1 - Avarampalayam: 1
+
+URGENT SAFETY COMPLAINTS
+------------------------
+C03: Driver used a phone while driving
+C04: Front bus door does not close properly
+C08: Students standing on the footboard due to overcrowding
+C09: Driver was driving at an unsafe speed
+C10: Smoke and burning smell reported inside the bus
+C14: Bus tyre appears damaged and unsafe
+C18: Driver was driving at an unsafe speed
